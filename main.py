@@ -13,7 +13,8 @@ class Aplicacion(tk.Tk):
         super().__init__()
         self.title("Compresor de imágenes K-means")
         self.resizable(True, True)  
-        self.__imagen = None
+        self.__imagen = None # esta es PIL image
+        self.__photoImagenSubida = None #esta es PhotoImage
         self.__ventanaConf = None
         self.__listaHiperparametros = []
 
@@ -23,7 +24,7 @@ class Aplicacion(tk.Tk):
 
         # open file #
         tk.Button(self, text="Abrir archivo", command=self.__openFile).pack()
-        self.__imagenLabel = tk.Label(self, image=self.__imagen)
+        self.__imagenLabel = tk.Label(self, image=self.__photoImagenSubida)
         
 
         # run k-means #
@@ -34,8 +35,10 @@ class Aplicacion(tk.Tk):
 
 
     def __comprobarHiperparametros(self):
+        #print(self.__imagen == None)
+        #print(len(self.__listaHiperparametros))
         #si la lista de hiperparametros esta completa y la imagen esta cargada se ejecuta k-means
-        if self.__imagen != None and not self.__listaHiperparametros:
+        if self.__imagen != None and len(self.__listaHiperparametros):
             proceso = LoadingScreen(self, self.__imagen, self.__listaHiperparametros)
             imagenComprimida = proceso.getImagen()
             proceso.destroy()
@@ -92,17 +95,20 @@ class Aplicacion(tk.Tk):
         try:
             fichero = fd.askopenfilename(title = "Abrir imagen", initialdir = "./", filetypes = (("Imágenes png", "*.png"), ("Imágenes jpg", "*.jpg")))
             print(fichero)
-            imagen = ImageTk.PhotoImage(Image.open(fichero))
-            
+            imagen = Image.open(fichero)
+            photoImagen = ImageTk.PhotoImage(imagen)
             
         except AttributeError as ae:
             print("Error al cargar el archivo")
+            self.__clearImg()
+
         else:
             print("else :)")
-            self.__imagenLabel.destroy()
-            self.__imagenLabel = tk.Label(self, image=imagen)
+            self.__clearImg()
+            self.__imagenLabel = tk.Label(self, image=photoImagen)
             self.__imagenLabel.pack()
             self.__imagen = imagen
+            self.__photoImagenSubida = photoImagen
 
     def __showConfig(self):
         
@@ -113,6 +119,9 @@ class Aplicacion(tk.Tk):
     
     def __clearImg(self):
         self.__imagen = None
+        self.__photoImagenSubida = None
+        self.__imagenLabel.destroy()
+
 
     def __salida(self):
         self.destroy()
@@ -154,16 +163,24 @@ class Configuracion(tk.Toplevel):
             validate="key", 
             validatecommand=(self.register(self.__validaNum), "%P")
         )
+
+        labelNumEjecuciones = tk.Label(self, text="Número de ejecuciones del algoritmo:")
+        self.__numEjecuciones = tk.Entry(
+            self,
+            validate="key",
+            validatecommand=(self.register(self.__validaNum), "%P")
+        )
+
         labelNumIters = tk.Label(self, text="Número de iteraciones por ejecución:")
         self.__numIters = tk.Entry(
             self,
             validate="key",
             validatecommand=(self.register(self.__validaNum), "%P")
         )
-        labelVerbose = tk.Label(self, text="Información adicional durante ejecución:")
-        self.__verbose = tk.IntVar()
-        RBNo = tk.Radiobutton(self, text="No", variable=self.__verbose, value=0)
-        RBYes = tk.Radiobutton(self, text="Yes", variable=self.__verbose, value=1)
+        #labelVerbose = tk.Label(self, text="Información adicional durante ejecución:")
+        #self.__verbose = tk.IntVar()
+        #RBNo = tk.Radiobutton(self, text="No", variable=self.__verbose, value=0)
+        #RBYes = tk.Radiobutton(self, text="Yes", variable=self.__verbose, value=1)
         buttonGuardar = tk.Button(self, text="Guardar", command=lambda:self.__validaCampos(root))
 
 
@@ -171,9 +188,9 @@ class Configuracion(tk.Toplevel):
         self.__numberClusters.pack()
         labelNumIters.pack()
         self.__numIters.pack() 
-        labelVerbose.pack()
-        RBNo.pack()
-        RBYes.pack()
+        #labelVerbose.pack()
+        #RBNo.pack()
+        #RBYes.pack()
         buttonGuardar.pack()
 
     def __validaNum(self, val):
@@ -182,11 +199,13 @@ class Configuracion(tk.Toplevel):
         return False
 
     def __validaCampos(self, root):
-        print("verbose: ", self.__verbose.get())
         flag = False
-        if self.__numberClusters.get() == "" or self.__numIters.get() == "":
-            flag = True
 
+        lista = [self.__numberClusters, self.__numEjecuciones, self.__numIters,]
+        for _, param in enumerate():
+            if param.get() == "":
+                flag = True
+        
         if flag:
             messagebox.showerror(title="Error", message="Uno o más campos están vacíos")
         else:
@@ -225,11 +244,16 @@ class LoadingScreen(tk.Toplevel):
             text="Algoritmo de clustering K-means ejecutandose, por favor espere..."
         )
 
+
         pb.pack()
         mensaje.pack()
 
-        self.__run_algrithm(imagen, hiperparametros)
+        pb.start()
+
+        imagen = np.array(imagen)
+        self.__run_algorithm(imagen, hiperparametros)
         
+        pb.stop()
 
 
 
