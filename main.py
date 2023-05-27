@@ -186,6 +186,8 @@ class Configuracion(tk.Toplevel):
 
         labelClusters.pack()
         self.__numberClusters.pack()
+        labelNumEjecuciones.pack()
+        self.__numEjecuciones.pack()
         labelNumIters.pack()
         self.__numIters.pack() 
         #labelVerbose.pack()
@@ -201,9 +203,10 @@ class Configuracion(tk.Toplevel):
     def __validaCampos(self, root):
         flag = False
 
-        lista = [self.__numberClusters, self.__numEjecuciones, self.__numIters,]
-        for _, param in enumerate():
-            if param.get() == "":
+        lista = [self.__numberClusters.get(), self.__numEjecuciones.get(), self.__numIters.get()]
+        print(f"lista {lista}")
+        for _, param in enumerate(lista):
+            if param == "":
                 flag = True
         
         if flag:
@@ -213,9 +216,9 @@ class Configuracion(tk.Toplevel):
             root.clearListaHiperparametros()
             
             root.setListaHiperparametros((
-                int(self.__numberClusters.get()),
-                int(self.__numIters.get()),
-                int(self.__verbose.get())
+                int(lista[0]),
+                int(lista[1]),
+                int(lista[2])
             ))
 
             messagebox.showinfo(
@@ -244,38 +247,53 @@ class LoadingScreen(tk.Toplevel):
             text="Algoritmo de clustering K-means ejecutandose, por favor espere..."
         )
 
+        pb.start()
 
         pb.pack()
         mensaje.pack()
 
-        pb.start()
 
         imagen = np.array(imagen)
-        self.__run_algorithm(imagen, hiperparametros)
+        self.__imagen_comprimida = self.__run_algorithm(imagen, hiperparametros)
         
         pb.stop()
 
 
+    def getImagen(self):
+        print(self.__imagen_comprimida.dtype)
+        return Image.fromarray((self.__imagen_comprimida * 255).astype(np.uint8))
+
 
     def __run_algorithm(self, imagen_original, hiperparametros):
+        print(f"original {imagen_original.shape}")
+        m, n, p = imagen_original.shape
+        imagen_reshape = np.reshape(imagen_original, (m * n, p))
+        print(f"imagen reshape {imagen_reshape.shape}, {imagen_reshape.dtype}")
+
         num_clusters, num_ejecuciones, num_iter = hiperparametros
+        #print(f"hip {hiperparametros}, img {imagen_original.shape}")
         # hiperparametro es una lista 
         # se llama a fit()
         model = km.KMeans(num_clusters, num_ejecuciones, num_iter)
-        _, centroids, index_centroids = model.fit(imagen_original)
+        _, centroids, index_centroids = model.fit(imagen_reshape, True)
         # fit retorna costo, centroids, index_centroids
         imagen = centroids[index_centroids]
-        imagen = np.reshape(imagen, imagen_original.shape)
+        imagen = np.reshape(imagen, (m, n, p))
+        print(f"imagen_comprimida {imagen.shape}, {imagen.dtype}")
 
-        pass
+        import matplotlib.pyplot as plt
+        plt.imshow(imagen)
+
+        return imagen
 
 
 class VentanaResultado(tk.Toplevel):
     def __init__(self, root, imagen):
         super().__init__(root)
+        imagen = ImageTk.PhotoImage(imagen)
         self.__imagenComprimida = tk.Label(self, image=imagen)
         self.__imagenComprimida.pack()
-        tk.Button("Descargar", command=self.__descargarImagen).pack()
+        tk.Button(self, text="Descargar", command=self.__descargarImagen).pack()
 
     def __descargarImagen(self):
         pass
