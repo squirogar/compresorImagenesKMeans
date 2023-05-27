@@ -252,51 +252,57 @@ class LoadingScreen(tk.Toplevel):
         pb.pack()
         mensaje.pack()
 
-
-        imagen = np.array(imagen)
-        self.__imagen_comprimida = self.__run_algorithm(imagen, hiperparametros)
+        self.__imagen_nueva = self.__run_algorithm(imagen, hiperparametros)
         
         pb.stop()
 
 
+
     def getImagen(self):
-        print(self.__imagen_comprimida.dtype)
-        return Image.fromarray((self.__imagen_comprimida * 255).astype(np.uint8))
+        # los valores de la imagen nueva son float, para poder convertirlo en photoimage deben ser int
+        print(self.__imagen_nueva.dtype)
+        return Image.fromarray((self.__imagen_nueva * 255).astype(np.uint8))
 
 
     def __run_algorithm(self, imagen_original, hiperparametros):
-        print(f"original {imagen_original.shape}")
-        m, n, p = imagen_original.shape
-        imagen_reshape = np.reshape(imagen_original, (m * n, p))
-        print(f"imagen reshape {imagen_reshape.shape}, {imagen_reshape.dtype}")
+        # imagen_original es una PIL image
+        # sin la división sería un array con int, necesitamos que sea float
+        imagen = np.array(imagen_original) / 255
+        #print(f"original {imagen.shape}")
+        m, n, p = imagen.shape
+        # se hace un reshape a array2d
+        imagen_2d = np.reshape(imagen, (m * n, p))
+        #print(f"imagen reshape {imagen_reshape.shape}, {imagen_reshape.dtype}")
 
+        #imagen_2d = self.__imageToArray(imagen_original) #matrix 2d
         num_clusters, num_ejecuciones, num_iter = hiperparametros
         #print(f"hip {hiperparametros}, img {imagen_original.shape}")
         # hiperparametro es una lista 
         # se llama a fit()
         model = km.KMeans(num_clusters, num_ejecuciones, num_iter)
-        _, centroids, index_centroids = model.fit(imagen_reshape, True)
+        _, centroids, index_centroids = model.fit(imagen_2d, True)
         # fit retorna costo, centroids, index_centroids
-        imagen = centroids[index_centroids]
-        imagen = np.reshape(imagen, (m, n, p))
-        print(f"imagen_comprimida {imagen.shape}, {imagen.dtype}")
+        imagen_nueva = centroids[index_centroids] #matrix 2d
+        imagen_nueva = np.reshape(imagen_nueva, (m, n, p)) #matrix 3d
+        #print(f"imagen_comprimida {imagen_nueva.shape}, {imagen_nueva.dtype}")
 
-        import matplotlib.pyplot as plt
-        plt.imshow(imagen)
+        #import matplotlib.pyplot as plt
+        #plt.imshow(imagen_nueva)
 
-        return imagen
+        return imagen_nueva
 
 
 class VentanaResultado(tk.Toplevel):
     def __init__(self, root, imagen):
         super().__init__(root)
-        imagen = ImageTk.PhotoImage(imagen)
-        self.__imagenComprimida = tk.Label(self, image=imagen)
+        self.__imagen = imagen
+        self.__imagenPhoto = ImageTk.PhotoImage(imagen)
+        self.__imagenComprimida = tk.Label(self, image=self.__imagenPhoto)
         self.__imagenComprimida.pack()
         tk.Button(self, text="Descargar", command=self.__descargarImagen).pack()
 
     def __descargarImagen(self):
-        pass
+        self.__imagen.save("a.png")
 
 
 
