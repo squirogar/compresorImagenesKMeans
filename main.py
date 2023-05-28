@@ -12,9 +12,17 @@ class Aplicacion(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Compresor de imágenes K-means")
-        self.resizable(True, True)  
-        self.__imagen = None # esta es PIL image
-        self.__photoImagenSubida = None #esta es PhotoImage
+        self.resizable(True, True)
+
+        # objeto imagen #
+        self.__imageApp = None
+        #self.__imagen = None # esta es PIL image
+        #self.__photoImagenSubida = None #esta es PhotoImage
+
+        self.__imagenLabel = None        
+        #self.__imagenLabel = tk.Label(self)
+        #self.__imagenLabel.pack()
+        
         self.__ventanaConf = None
         self.__listaHiperparametros = []
 
@@ -24,32 +32,34 @@ class Aplicacion(tk.Tk):
 
         # open file #
         tk.Button(self, text="Abrir archivo", command=self.__openFile).pack()
-        self.__imagenLabel = tk.Label(self, image=self.__photoImagenSubida)
         
+        
+
 
         # run k-means #
         tk.Button(self, text="Run K-means", command=self.__comprobarHiperparametros).pack()
-        self.__imagenLabel.pack()
 
         
 
 
     def __comprobarHiperparametros(self):
-        #print(self.__imagen == None)
+        print(f"is not none la imagen? {self.__imageApp is not None}")
+        print(f"is empty lista? {len(self.__listaHiperparametros)}")
         #print(len(self.__listaHiperparametros))
         #si la lista de hiperparametros esta completa y la imagen esta cargada se ejecuta k-means
-        if self.__imagen != None and len(self.__listaHiperparametros):
-            proceso = LoadingScreen(self, self.__imagen, self.__listaHiperparametros)
+        if self.__imageApp is not None and len(self.__listaHiperparametros):
+            proceso = LoadingScreen(self, self.__imageApp.getImage(), self.__listaHiperparametros)
+            
             imagenComprimida = proceso.getImagen()
             proceso.destroy()
-            ventanaImagen = VentanaResultado(self, imagenComprimida)
+            ventanaImagen = VentanaResultado(self, imagenComprimida, self.__imageApp.getExtension())
             
         else:
             #si una de las condiciones anteriores no se cumplio entonces retornar un mensaje de error
             messagebox.showerror(
                 title="Error", 
                 message=("No es posible ejecutar K-means. Revise que se cargó la imagen correctamente "
-                "y configuró adecuadamente los hiperparámetros en el menú Herramientas -> Configuración.")
+                "y configuró adecuadamente los hiperparámetros en el menú 'Herramientas' > 'Configuración'.")
             )
 
 
@@ -62,7 +72,7 @@ class Aplicacion(tk.Tk):
 
     def __creaMenu(self):
         """
-        Retorna una barra de menú con las opciones de "archivo", "herramientas", "ayuda" y "acerca de"
+        Retorna una barra de menú con las opciones de 'archivo', 'herramientas', 'ayuda' y 'acerca de'
 
         """
         newMenu = tk.Menu(self)
@@ -93,10 +103,13 @@ class Aplicacion(tk.Tk):
     def __openFile(self):
         # retorna la direccion donde esta la imagen
         try:
-            fichero = fd.askopenfilename(title = "Abrir imagen", initialdir = "./", filetypes = (("Imágenes png", "*.png"), ("Imágenes jpg", "*.jpg")))
-            print(fichero)
-            imagen = Image.open(fichero)
-            photoImagen = ImageTk.PhotoImage(imagen)
+            rutaImagen = fd.askopenfilename(title = "Abrir imagen", initialdir = "./", filetypes = (("Imágenes png", "*.png"), ("Imágenes jpg", "*.jpg")))
+            print(rutaImagen)
+
+            imagen = Image.open(rutaImagen)
+            
+            
+            #photoImagen = ImageTk.PhotoImage(imagen)
             
         except AttributeError as ae:
             print("Error al cargar el archivo")
@@ -105,10 +118,12 @@ class Aplicacion(tk.Tk):
         else:
             print("else :)")
             self.__clearImg()
-            self.__imagenLabel = tk.Label(self, image=photoImagen)
+
+            self.__imageApp = Imagen(imagen, rutaImagen)
+            self.__imagenLabel = tk.Label(self, image=self.__imageApp.getPhotoImage())
             self.__imagenLabel.pack()
-            self.__imagen = imagen
-            self.__photoImagenSubida = photoImagen
+            #self.__imagen = imagen
+            #self.__photoImagenSubida = photoImagen
 
     def __showConfig(self):
         
@@ -118,9 +133,12 @@ class Aplicacion(tk.Tk):
         self.__ventanaConf = Configuracion(self)
     
     def __clearImg(self):
-        self.__imagen = None
-        self.__photoImagenSubida = None
-        self.__imagenLabel.destroy()
+        if self.__imageApp is not None:
+            del self.__imageApp
+            self.__imageApp = None
+        
+        if self.__imagenLabel is not None:
+            self.__imagenLabel.destroy()
 
 
     def __salida(self):
@@ -149,8 +167,29 @@ class Aplicacion(tk.Tk):
             message="Programa creado por Sebastián Quiroga R."
         )
 
+######
+class Imagen():
+    def __init__(self, imagen, filename):
+        self.__imagen = imagen
+        self.__imagenPhoto = ImageTk.PhotoImage(imagen)
+        self.__filename = filename
+        
+    def getExtension(self):
+        extension = self.__filename.split(".")[-1]
+        print(extension)
+        return extension
+
+    def getImage(self):
+        return self.__imagen
+
+    def getPhotoImage(self):
+        return self.__imagenPhoto
+
+    
 
 
+
+#########
 
 
 class Configuracion(tk.Toplevel):
@@ -293,16 +332,22 @@ class LoadingScreen(tk.Toplevel):
 
 
 class VentanaResultado(tk.Toplevel):
-    def __init__(self, root, imagen):
+    def __init__(self, root, imagen, extension):
         super().__init__(root)
         self.__imagen = imagen
         self.__imagenPhoto = ImageTk.PhotoImage(imagen)
         self.__imagenComprimida = tk.Label(self, image=self.__imagenPhoto)
+        self.__extension = extension
+
         self.__imagenComprimida.pack()
         tk.Button(self, text="Descargar", command=self.__descargarImagen).pack()
 
     def __descargarImagen(self):
-        self.__imagen.save("a.png")
+        self.__imagen.save("image." + self.__extension)
+        messagebox.showinfo(
+            title="Aviso",
+            message="Imagen descargada"
+        )
 
 
 
@@ -315,10 +360,3 @@ class VentanaResultado(tk.Toplevel):
 if __name__ == "__main__":
     app = Aplicacion()
     app.mainloop()
-
-
-#frame = tk.Frame(root)
-
-
-
-#root.mainloop()
