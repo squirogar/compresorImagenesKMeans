@@ -216,10 +216,6 @@ class Configuracion(tk.Toplevel):
             validate="key",
             validatecommand=(self.register(self.__validaNum), "%P")
         )
-        #labelVerbose = tk.Label(self, text="Información adicional durante ejecución:")
-        #self.__verbose = tk.IntVar()
-        #RBNo = tk.Radiobutton(self, text="No", variable=self.__verbose, value=0)
-        #RBYes = tk.Radiobutton(self, text="Yes", variable=self.__verbose, value=1)
         buttonGuardar = tk.Button(self, text="Guardar", command=lambda:self.__validaCampos(root))
 
 
@@ -229,13 +225,10 @@ class Configuracion(tk.Toplevel):
         self.__numEjecuciones.pack()
         labelNumIters.pack()
         self.__numIters.pack() 
-        #labelVerbose.pack()
-        #RBNo.pack()
-        #RBYes.pack()
         buttonGuardar.pack()
 
     def __validaNum(self, val):
-        if val.isdecimal():
+        if val.isdecimal() or val == "":
             return True
         return False
 
