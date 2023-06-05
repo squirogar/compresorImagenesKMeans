@@ -5,7 +5,8 @@ from PIL import ImageTk, Image
 from tkinter import messagebox
 import Kmeans as km
 import numpy as np
-
+from threading import Thread
+import queue
 
 class Aplicacion(tk.Tk):
     
@@ -48,11 +49,13 @@ class Aplicacion(tk.Tk):
         #print(len(self.__listaHiperparametros))
         #si la lista de hiperparametros esta completa y la imagen esta cargada se ejecuta k-means
         if self.__imageApp is not None and len(self.__listaHiperparametros):
-            proceso = LoadingScreen(self, self.__imageApp.getImage(), self.__listaHiperparametros)
+            proceso = LoadingScreen(self)
+            proceso.run(self.__imageApp, self.__listaHiperparametros)
             
-            imagenComprimida = proceso.getImagen()
-            proceso.destroy()
-            ventanaImagen = VentanaResultado(self, imagenComprimida, self.__imageApp.getExtension())
+            
+            
+            
+            
             
         else:
             #si una de las condiciones anteriores no se cumplio entonces retornar un mensaje de error
@@ -224,7 +227,7 @@ class Configuracion(tk.Toplevel):
         labelNumEjecuciones.pack()
         self.__numEjecuciones.pack()
         labelNumIters.pack()
-        self.__numIters.pack() 
+        self.__numIters.pack()
         buttonGuardar.pack()
 
     def __validaNum(self, val):
@@ -263,12 +266,13 @@ class Configuracion(tk.Toplevel):
 
 
 
-
+######
 
 class LoadingScreen(tk.Toplevel):
-    def __init__(self, root, imagen, hiperparametros):
+    def __init__(self, root):#, imagen, hiperparametros):
         super().__init__(root)
-        pb = ttk.Progressbar(
+        self.root = root
+        self.__pb = ttk.Progressbar(
             self, 
             orient="horizontal", 
             mode="indeterminate", 
@@ -279,24 +283,61 @@ class LoadingScreen(tk.Toplevel):
             text="Algoritmo de clustering K-means ejecutandose, por favor espere..."
         )
 
-        pb.start()
+        #self.__imagen = None
+        
+        self.__pb.pack()
+        self.__pb.start()
+        #self.__hiperparametros = hiperparametros
 
-        pb.pack()
         mensaje.pack()
 
-        self.__imagen_nueva = self.__run_algorithm(imagen, hiperparametros)
-        
-        pb.stop()
 
 
+    def run(self, imagen, hiperparametros):
+        self.__imagen = imagen.getImage()
+        self.__ext = imagen.getExtension()
+        self.__cola = queue.Queue()
+        self.__thread1 = Thread(target=self.__run_algorithm, args=(self.__imagen, hiperparametros, self.__cola))
+        #__run_algoritm debe tener acceso a la queue
+        self.__thread1.start()
 
-    def getImagen(self):
-        # los valores de la imagen nueva son float, para poder convertirlo en photoimage deben ser int
-        print(self.__imagen_nueva.dtype)
-        return Image.fromarray((self.__imagen_nueva * 255).astype(np.uint8))
+        self.__check_queue()
 
 
-    def __run_algorithm(self, imagen_original, hiperparametros):
+    def __check_queue(self):
+        print("check queue")
+        if self.__thread1.is_alive():
+            # si aun esta vivo el hilo, volver a preguntar si termino despues de un tiempo
+            self.root.after(5000, self.__check_queue)
+        self.__access_queue()
+        print(f"is alive {self.__thread1.is_alive()}")
+
+        if not self.__thread1.is_alive():
+            self.__pb.stop()
+            
+            VentanaResultado(self.root, self.__imagen, self.__ext)
+            self.destroy()
+        #if not self.running:
+            # This is the brutal stop of the system.  You may want to do
+            # some cleanup before actually shutting it down.
+        #    import sys
+        #    sys.exit(1)
+
+    def __access_queue(self):
+        print("access queue")
+        # si la cola no esta vacia, entonces sacamos la imagen, ya que el hilo termino su ejecucion
+        if self.__cola.qsize():
+            try:
+                img = self.__cola.get_nowait()
+                self.__imagen = self.transformImagen(img)
+            except queue.Empty:
+                # get_nowait retorna un item sin bloquearse, sin embargo, si no hay nada disponible lanza
+                # exception
+                print("queue empty!")
+                
+
+
+    def __run_algorithm(self, imagen_original, hiperparametros, cola):
         # imagen_original es una PIL image
         # sin la división sería un array con int, necesitamos que sea float
         imagen = np.array(imagen_original) / 255
@@ -320,8 +361,21 @@ class LoadingScreen(tk.Toplevel):
 
         #import matplotlib.pyplot as plt
         #plt.imshow(imagen_nueva)
+        
+        cola.put(imagen_nueva)
+        print("terminamos")
 
-        return imagen_nueva
+
+    def transformImagen(self, imagen):
+        # los valores de la imagen nueva son float, para poder convertirlo en photoimage deben ser int
+        #print(self.__imagen.dtype)
+        return Image.fromarray((imagen * 255).astype(np.uint8))
+
+
+
+
+
+#######
 
 
 class VentanaResultado(tk.Toplevel):
