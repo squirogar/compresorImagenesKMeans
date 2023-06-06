@@ -13,7 +13,7 @@ class Aplicacion(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Compresor de imágenes K-means")
-        self.resizable(True, True)
+#        self.resizable(True, True)
 
         # objeto imagen #
         self.__imageApp = None
@@ -31,14 +31,35 @@ class Aplicacion(tk.Tk):
         self.__myMenu = self.__creaMenu()
         self.config(menu=self.__myMenu)
 
-        # open file #
-        tk.Button(self, text="Abrir archivo", command=self.__openFile).pack()
-        
-        
+
+        #### scrolleable
 
 
-        # run k-means #
-        tk.Button(self, text="Run K-means", command=self.__comprobarHiperparametros).pack()
+        main_frame = tk.Frame(self)
+        main_frame.pack(fill='both', expand=1)
+
+        my_canvas = tk.Canvas(main_frame)
+
+
+        my_scrollbary = ttk.Scrollbar(main_frame, orient='vertical', command=my_canvas.yview)
+        my_scrollbary.pack(side='right', fill='y')
+
+        my_scrollbarx = ttk.Scrollbar(main_frame, orient='horizontal', command=my_canvas.xview)
+        my_scrollbarx.pack(side='bottom', fill='x')
+
+        my_canvas.pack(side='top', fill='both', expand=1)
+
+        my_canvas.configure(yscrollcommand=my_scrollbary.set)
+        my_canvas.configure(xscrollcommand=my_scrollbarx.set)
+        my_canvas.bind("<Configure>", lambda e: my_canvas.configure(scrollregion=my_canvas.bbox("all")))
+
+        self.second_frame = tk.Frame(my_canvas)
+        my_canvas.create_window((0,0), window=self.second_frame, anchor="nw") 
+
+
+        # buttons
+        #tk.Button(self.second_frame, text="Abrir archivo", command=self.__openFile).pack()
+        #tk.Button(self.second_frame, text="Run K-means", command=self.__comprobarHiperparametros).pack()
 
         
 
@@ -81,11 +102,16 @@ class Aplicacion(tk.Tk):
         newMenu = tk.Menu(self)
 
         file = tk.Menu(self, tearoff=0)
+        run = tk.Menu(self, tearoff=0)
         tools = tk.Menu(self, tearoff=0)
         help = tk.Menu(self, tearoff=0)
         about = tk.Menu(self, tearoff=0)
 
+        file.add_command(label="Abrir archivo", command=self.__openFile)
+        file.add_separator()
         file.add_command(label="Salir", command=self.__salida)
+
+        run.add_command(label="Run K-means", command=self.__comprobarHiperparametros)
 
         tools.add_command(label="Limpiar imagen", command=self.__clearImg)
         tools.add_separator()
@@ -97,6 +123,7 @@ class Aplicacion(tk.Tk):
         about.add_command(label="Autor", command=self.__showAutor)
 
         newMenu.add_cascade(label="Archivo", menu=file)
+        newMenu.add_cascade(label="Run", menu=run)
         newMenu.add_cascade(label="Herramientas", menu=tools)
         newMenu.add_cascade(label="Ayuda", menu=help)
         newMenu.add_cascade(label="Acerca de", menu=about)
@@ -123,7 +150,7 @@ class Aplicacion(tk.Tk):
             self.__clearImg()
 
             self.__imageApp = Imagen(imagen, rutaImagen)
-            self.__imagenLabel = tk.Label(self, image=self.__imageApp.getPhotoImage())
+            self.__imagenLabel = tk.Label(self.second_frame, image=self.__imageApp.getPhotoImage())
             self.__imagenLabel.pack()
             #self.__imagen = imagen
             #self.__photoImagenSubida = photoImagen
@@ -198,7 +225,8 @@ class Imagen():
 class Configuracion(tk.Toplevel):
     def __init__(self, root):
         super().__init__(root)
-
+        self.root = root
+        
         labelClusters = tk.Label(self, text="Número de clusters:")
         self.__numberClusters = tk.Entry(
             self, 
@@ -219,7 +247,7 @@ class Configuracion(tk.Toplevel):
             validate="key",
             validatecommand=(self.register(self.__validaNum), "%P")
         )
-        buttonGuardar = tk.Button(self, text="Guardar", command=lambda:self.__validaCampos(root))
+        buttonGuardar = tk.Button(self, text="Guardar", command=self.__validaCampos)
 
 
         labelClusters.pack()
@@ -235,7 +263,7 @@ class Configuracion(tk.Toplevel):
             return True
         return False
 
-    def __validaCampos(self, root):
+    def __validaCampos(self):
         flag = False
 
         lista = [self.__numberClusters.get(), self.__numEjecuciones.get(), self.__numIters.get()]
@@ -248,9 +276,9 @@ class Configuracion(tk.Toplevel):
             messagebox.showerror(title="Error", message="Uno o más campos están vacíos")
         else:
 
-            root.clearListaHiperparametros()
+            self.root.clearListaHiperparametros()
             
-            root.setListaHiperparametros((
+            self.root.setListaHiperparametros((
                 int(lista[0]),
                 int(lista[1]),
                 int(lista[2])
@@ -272,6 +300,7 @@ class LoadingScreen(tk.Toplevel):
     def __init__(self, root):#, imagen, hiperparametros):
         super().__init__(root)
         self.root = root
+        self.resizable(False, False)
         self.__pb = ttk.Progressbar(
             self, 
             orient="horizontal", 
@@ -294,10 +323,11 @@ class LoadingScreen(tk.Toplevel):
 
 
     def run(self, imagen, hiperparametros):
+        self.root.withdraw()
         self.__imagen = imagen.getImage()
         self.__ext = imagen.getExtension()
         self.__cola = queue.Queue()
-        self.__thread1 = Thread(target=self.__run_algorithm, args=(self.__imagen, hiperparametros, self.__cola))
+        self.__thread1 = Thread(target=self.__run_algorithm, args=(self.__imagen, hiperparametros, self.__cola), daemon=True)
         #__run_algoritm debe tener acceso a la queue
         self.__thread1.start()
 
@@ -316,6 +346,8 @@ class LoadingScreen(tk.Toplevel):
             self.__pb.stop()
             
             VentanaResultado(self.root, self.__imagen, self.__ext)
+            messagebox.showinfo(title="Aviso", message="Proceso finalizado")
+            
             self.destroy()
         #if not self.running:
             # This is the brutal stop of the system.  You may want to do
@@ -383,11 +415,46 @@ class VentanaResultado(tk.Toplevel):
         super().__init__(root)
         self.__imagen = imagen
         self.__imagenPhoto = ImageTk.PhotoImage(imagen)
-        self.__imagenComprimida = tk.Label(self, image=self.__imagenPhoto)
         self.__extension = extension
 
+        root.deiconify()
+        root.clearListaHiperparametros()
+
+
+        # menu #
+        self.__myMenu = self.__creaMenu()
+        self.config(menu=self.__myMenu)
+
+        #### scrolleable
+
+        main_frame = tk.Frame(self)
+        main_frame.pack(fill='both', expand=1)
+
+        my_canvas = tk.Canvas(main_frame)
+
+
+        my_scrollbary = ttk.Scrollbar(main_frame, orient='vertical', command=my_canvas.yview)
+        my_scrollbary.pack(side='right', fill='y')
+
+        my_scrollbarx = ttk.Scrollbar(main_frame, orient='horizontal', command=my_canvas.xview)
+        my_scrollbarx.pack(side='bottom', fill='x')
+
+        my_canvas.pack(side='top', fill='both', expand=1)
+
+        my_canvas.configure(yscrollcommand=my_scrollbary.set)
+        my_canvas.configure(xscrollcommand=my_scrollbarx.set)
+        my_canvas.bind("<Configure>", lambda e: my_canvas.configure(scrollregion=my_canvas.bbox("all")))
+
+        second_frame = tk.Frame(my_canvas)
+        my_canvas.create_window((0,0), window=second_frame, anchor="nw") 
+
+
+
+
+
+        self.__imagenComprimida = tk.Label(second_frame, image=self.__imagenPhoto)
         self.__imagenComprimida.pack()
-        tk.Button(self, text="Descargar", command=self.__descargarImagen).pack()
+        #tk.Button(second_frame, text="Descargar", command=self.__descargarImagen).pack()
 
     def __descargarImagen(self):
         self.__imagen.save("image." + self.__extension)
@@ -395,6 +462,23 @@ class VentanaResultado(tk.Toplevel):
             title="Aviso",
             message="Imagen descargada"
         )
+    
+    def __creaMenu(self):
+        """
+        Retorna una barra de menú con las opciones de 'archivo'
+
+        """
+        newMenu = tk.Menu(self)
+
+        file = tk.Menu(self, tearoff=0)
+        
+        file.add_command(label="Descargar imagen", command=self.__descargarImagen)
+
+        newMenu.add_cascade(label="Archivo", menu=file)
+
+        return newMenu
+
+
 
 
 
