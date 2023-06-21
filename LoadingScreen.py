@@ -145,7 +145,7 @@ class LoadingScreen(tk.Toplevel):
             imagen_nueva = centroids[index_centroids] #matrix 2d
             imagen_nueva = np.reshape(imagen_nueva, (m, n, p)) #matrix 3d
             cola.put(imagen_nueva)
-            print("terminamos")
+            
 
 
     def transformImagen(self, imagen):
@@ -159,7 +159,7 @@ class LoadingScreen(tk.Toplevel):
         Returns:
             - img (PIL.Image): imagen transformada
         """
-        img = Image.fromarray((imagen * 255).astype(np.uint8))
+        img = Image.fromarray((imagen * 255).astype(np.uint8)).convert("RGB")
         return img 
 
     def __avisoSalida(self):

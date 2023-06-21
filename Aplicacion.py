@@ -138,6 +138,7 @@ class Aplicacion(tk.Tk):
 
         else:
             self.__clearImg()
+            imagen = imagen.convert("RGB")
             self.__imageApp = ut.Imagen(imagen, rutaImagen)
             self.__imagenLabel = tk.Label(self.second_frame, image=self.__imageApp.getPhotoImage())
             self.__imagenLabel.pack()
