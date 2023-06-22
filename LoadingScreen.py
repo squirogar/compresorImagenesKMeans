@@ -28,7 +28,7 @@ class LoadingScreen(tk.Toplevel):
         
         mensaje = tk.Label(
             self, 
-            text="Algoritmo de clustering K-means ejecutandose, por favor espere..."
+            text="Algoritmo de clustering K-means ejecutándose, por favor espere..."
         )
 
         self.__pb.pack()
